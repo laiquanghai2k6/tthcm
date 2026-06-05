@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Question, Subject } from "@/types/flash-card";
 
 type QuizState = "start" | "quiz" | "completed";
@@ -21,8 +21,9 @@ export default function FlashCardWorkspace({
 }: FlashCardWorkspaceProps) {
   const [quizState, setQuizState] = useState<QuizState>("start");
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
-  const [answers, setAnswers] = useState<AnswerRecord[]>([]);
+  const [answers, setAnswers] = useState<Array<AnswerRecord | undefined>>([]);
   const [selectedOptionIndex, setSelectedOptionIndex] = useState<number | null>(null);
+  const [showJumpPanel, setShowJumpPanel] = useState(false);
 
   const cards = useMemo(() => {
     return questions;
@@ -33,26 +34,39 @@ export default function FlashCardWorkspace({
   const handleStartQuiz = () => {
     setQuizState("quiz");
     setCurrentCardIndex(0);
-    setAnswers([]);
+    setAnswers(new Array(cards.length).fill(undefined));
     setSelectedOptionIndex(null);
+    setShowJumpPanel(false);
   };
-  console.log('quizState', quizState);
+
+  useEffect(() => {
+    if (quizState !== "quiz") return;
+    const currentAnswer = answers[currentCardIndex];
+    setSelectedOptionIndex(currentAnswer?.selectedOptionIndex ?? null);
+  }, [answers, currentCardIndex, quizState]);
+
   const handleSelectOption = (optionIndex: number) => {
     if (selectedOptionIndex !== null) return;
 
     const option = currentCard?.options[optionIndex];
     if (!option) return;
 
+    const isCorrect = option.is_correct ?? undefined;
     setSelectedOptionIndex(optionIndex);
 
-    const isCorrect = option.is_correct ?? undefined;
-    setAnswers((prev) => [
-      ...prev,
-      {
+    setAnswers((prev) => {
+      const next = [...prev];
+      next[currentCardIndex] = {
         selectedOptionIndex: optionIndex,
-        isCorrect: isCorrect,
-      },
-    ]);
+        isCorrect,
+      };
+      return next;
+    });
+  };
+
+  const handleJumpToQuestion = (questionIndex: number) => {
+    if (questionIndex < 0 || questionIndex >= cards.length) return;
+    setCurrentCardIndex(questionIndex);
   };
 
   const handleNextQuestion = () => {
@@ -69,9 +83,10 @@ export default function FlashCardWorkspace({
     setCurrentCardIndex(0);
     setAnswers([]);
     setSelectedOptionIndex(null);
+    setShowJumpPanel(false);
   };
 
-  const correctCount = answers.filter((a) => a.isCorrect).length;
+  const correctCount = answers.filter((a) => a?.isCorrect).length;
   const totalQuestions = cards.length;
   const percentage = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
 
@@ -104,7 +119,7 @@ export default function FlashCardWorkspace({
                   Câu {currentCardIndex + 1} / {cards.length}
                 </span>
                 <span className="text-sm font-semibold text-[#4caf50]">
-                  ✓ {answers.filter((a) => a.isCorrect).length} câu đúng
+                  ✓ {answers.filter((a) => a?.isCorrect).length} câu đúng
                 </span>
               </div>
               <div className="h-1.5 bg-[#f0f0f0] rounded-full overflow-hidden">
@@ -121,6 +136,47 @@ export default function FlashCardWorkspace({
           {/* Question Card - Centered */}
           <div className="flex flex-col items-center  flex-1 px-5 pb-10">
             <div className="w-full max-w-2xl">
+              <div className="mb-4 rounded-lg border border-[#e0e0e0] bg-white p-4 shadow-sm">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[#556069]">Nhảy câu bất kỳ</p>
+                    <p className="text-sm text-[#7d8a93]">
+                      Nhấn nút để hiện danh sách các câu.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowJumpPanel((prev) => !prev)}
+                    className="h-11 rounded-lg border border-[#d1d5db] bg-[#f7f7f7] px-4 text-sm font-semibold text-[#374151] transition hover:bg-[#ececec]"
+                  >
+                    {showJumpPanel ? "Ẩn bảng câu" : "Hiện tất cả câu"}
+                  </button>
+                </div>
+                {showJumpPanel && (
+                  <div className="mt-4 grid gap-2 sm:grid-cols-6 md:grid-cols-8">
+                    {cards.map((_, index) => {
+                      const answer = answers[index];
+                      const isActive = index === currentCardIndex;
+                      const buttonColor = answer
+                        ? answer.isCorrect
+                          ? "bg-[#c8e6c9] text-[#1b5e20] border-[#81c784]"
+                          : "bg-[#ffccbc] text-[#b71c1c] border-[#ff8a65]"
+                        : "bg-white text-[#374151] border-[#d1d5db] hover:bg-[#f3f4f6]";
+
+                      return (
+                        <button
+                          key={`jump-${index}`}
+                          type="button"
+                          onClick={() => handleJumpToQuestion(index)}
+                          className={`rounded-lg border px-2 py-2 text-sm font-semibold transition ${buttonColor} ${isActive ? "ring-2 ring-[#4caf50]" : ""}`}
+                        >
+                          {index + 1}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
    {/* Question */}
               <div className="bg-white rounded-lg p-2 mb-2 shadow-md">
                 <h3 className="text-2xl font-bold text-[#1a1a1a] leading-snug text-center">
@@ -185,12 +241,12 @@ export default function FlashCardWorkspace({
               {selectedOptionIndex !== null && (
                 <div
                   className={`mb-8 p-5 rounded-lg text-center font-semibold text-lg ${
-                    answers[answers.length - 1]?.isCorrect
+                    answers[currentCardIndex]?.isCorrect
                       ? "bg-[#e8f5e9] text-[#2e7d32]"
                       : "bg-[#ffebee] text-[#c62828]"
                   }`}
                 >
-                  {answers[answers.length - 1]?.isCorrect
+                  {answers[currentCardIndex]?.isCorrect
                     ? "🎉 Chính xác!"
                     : "❌ Sai rồi! Hãy cố gắng lần sau."}
                 </div>
