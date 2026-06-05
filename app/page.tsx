@@ -50,9 +50,7 @@ export default function Home() {
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm font-medium text-[#55736b]">
-                    {subject.grade}
-                  </p>
+                 
                   <h2 className="mt-2 text-2xl font-semibold text-[#172026]">
                     {subject.name}
                   </h2>
@@ -61,9 +59,7 @@ export default function Home() {
                   {typedQuestionGroups.find((group) => group.subjectSlug === subject.slug)?.questions.length ?? 0} thẻ
                 </span>
               </div>
-              <p className="mt-4 min-h-14 text-sm leading-6 text-[#66737a]">
-                {subject.description}
-              </p>
+             
               <p className="mt-6 text-sm font-semibold text-[#172026]">
                 Vào môn học <span className="transition group-hover:translate-x-1">-&gt;</span>
               </p>
